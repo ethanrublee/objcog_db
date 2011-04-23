@@ -52,14 +52,7 @@ namespace objcog
     typedef boost::function<void(std::string, const char* data, size_t length)> unblob_sig;
   public:
 
-    /**
-     * @param name_space The namespace for the database, think 'objcog' or '/home/database'
-     * @param host_name localhost, or 10.0.1.13, etc.
-     */
-    DbClient(const std::string& name_space, const std::string& host_name) :
-      namespace_(name_space), host_name_(host_name)
-    {
-    }
+
     /**
      * virtual destructor, as this is an abstract interface.
      */
@@ -130,9 +123,20 @@ namespace objcog
     {
       return host_name_;
     }
-
+    enum DbType
+    {
+      MongoDB = 1, FilesystemDB = 2
+    };
+    static boost::shared_ptr<DbClient> createClient(std::string name_space, const std::string& host_name, DbType dbtype);
   protected:
-
+    /**
+     * @param name_space The namespace for the database, think 'objcog' or '/home/database'
+     * @param host_name localhost, or 10.0.1.13, etc.
+     */
+    DbClient(const std::string& name_space, const std::string& host_name) :
+      namespace_(name_space), host_name_(host_name)
+    {
+    }
     /**
      * \brief Called at connection time. Should do all necessary work to make the client ready
      * for action. May throw exceptions.
@@ -155,7 +159,7 @@ namespace objcog
 
     /**
      * \brief Given a query this should find the meta data and blob and then pass these to the unblob_sig on_each method.
-     * @param key
+     * @param collection_key
      * @param type_name A type_name, that should be used for differentiating blobs in the collection_key
      * @param query a json query
      * @param on_each void(std::string, const char* data, size_t length)
@@ -167,6 +171,7 @@ namespace objcog
      * Drop the entire table, under namespace.
      */
     virtual void drop_impl() = 0;
+
 
   private:
     template<typename DataT, typename archive>
@@ -216,9 +221,5 @@ namespace objcog
     std::string namespace_, host_name_;
   };
 
-  enum DbType
-  {
-    MongoDB = 1, FilesystemDB = 2
-  };
-  boost::shared_ptr<DbClient> createClient(std::string name_space, const std::string& host_name, DbType dbtype);
+
 }

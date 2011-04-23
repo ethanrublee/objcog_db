@@ -42,7 +42,7 @@ int main()
   cv::Mat image = cv::imread("data/a.png");
   cv::imshow("image",image);
   cv::waitKey(0);
-  boost::shared_ptr<objcog::DbClient> client = objcog::createClient("objcog", "localhost", objcog::MongoDB);
+  boost::shared_ptr<objcog::DbClient> client = objcog::DbClient::createClient("objcog", "localhost", objcog::DbClient::MongoDB);
   client->connect();
   client->drop();
   client->store<cv::Mat> ("images", "{ author : 'Ethan', tags: ['cv::mat', 'a.png'], info: 'is a png' }", image);

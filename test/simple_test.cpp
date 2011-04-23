@@ -101,7 +101,7 @@ void run()
   image::Image im(20, 50);
   image::PointCloud pc(33);
 
-  boost::shared_ptr<objcog::DbClient> client = objcog::createClient("objcog", "localhost", objcog::MongoDB);
+  boost::shared_ptr<objcog::DbClient> client = objcog::DbClient::createClient("objcog", "localhost", objcog::DbClient::MongoDB);
   client->connect();
   client->store<image::PointCloud> ("images", "{ author : 'Vincent', tags: ['coolness', 'nuggets','apples'] }", pc);
   client->store<image::Image> ("images", "{ author : 'Gary', tags: ['coolness', 'nuggets','apples'] }", im);

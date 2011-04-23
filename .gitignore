@@ -5,3 +5,5 @@ build/
 python/ecto/ui/uic.py
 \#*\#
 *~
+doc/html
+doc/latex

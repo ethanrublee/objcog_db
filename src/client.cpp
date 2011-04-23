@@ -107,7 +107,7 @@ namespace objcog
     mongo::DBClientConnection connection_;
   };
 
-  boost::shared_ptr<DbClient> createClient(std::string name_space, const std::string& host_name, DbType dbtype)
+  boost::shared_ptr<DbClient> DbClient::createClient(std::string name_space, const std::string& host_name, DbType dbtype)
   {
     switch (dbtype)
     {

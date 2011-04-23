@@ -6,3 +6,13 @@ cmake
 == optional Pre-Reqs ==
 opencv (a non rosinstall version)
 pcl (a non rosinstall version)
+
+== cmake build ==
+mkdir build
+cd build
+cmake ..
+make
+
+== try the samples ==
+build/bin/*
+
