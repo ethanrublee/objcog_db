@@ -1,0 +1,7 @@
+build/
+._*
+*.pyc
+.*
+python/ecto/ui/uic.py
+\#*\#
+*~
