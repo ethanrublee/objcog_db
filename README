@@ -1,0 +1,8 @@
+== Pre-Reqs ==
+mongodb - 
+  sudo apt-get install mongodb-dev
+boost
+cmake
+== optional Pre-Reqs ==
+opencv (a non rosinstall version)
+pcl (a non rosinstall version)
