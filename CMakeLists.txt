@@ -19,6 +19,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 #deps
 find_package(Boost COMPONENTS
   python
+  system
   serialization
   thread
   filesystem
@@ -45,7 +46,7 @@ set(srcs ${srcs} src/cv.cpp)
 
 endif()
 
-add_library(objcog_db ${srcs})
+add_library(objcog_db SHARED ${srcs})
 
 
 target_link_libraries(objcog_db 
@@ -68,3 +69,5 @@ if(OpenCV_FOUND)
 add_executable(mat_test test/mat_test.cpp)
 target_link_libraries(mat_test objcog_db  ${Boost_LIBRARIES} ${OpenCV_LIBS})
 endif()
+
+add_subdirectory(doc)

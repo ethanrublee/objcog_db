@@ -40,6 +40,11 @@ void showImage(const std::string& meta, const cv::Mat& image)
 int main()
 {
   cv::Mat image = cv::imread("data/a.png");
+  if(image.empty())
+  {
+    std::cerr << "Image not found! Make sure that data/a.png is relative to where your are running." << std::endl;
+    return 1;
+  }
   cv::imshow("image",image);
   cv::waitKey(0);
   boost::shared_ptr<objcog::DbClient> client = objcog::DbClient::createClient("objcog", "localhost", objcog::DbClient::MongoDB);
@@ -49,4 +54,5 @@ int main()
   client->store<cv::Mat> ("images", "{ author : 'Ethan', tags: ['cv::mat', 'a.png'], info: '/2' }", image / 2);
   client->retrieve<cv::Mat> ("images", "{ 'info' : '/2' }", showImage);
   client->drop();
+  return 0;
 }

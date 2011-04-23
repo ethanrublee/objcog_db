@@ -13,6 +13,11 @@ cd build
 cmake ..
 make
 
+== documentation ==
+(requires doxygen)
+cd build
+make doc
+
 == try the samples ==
 build/bin/*
-
+Run these from the root source path (so that they find files in the data directory )

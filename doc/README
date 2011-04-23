@@ -1,2 +1,3 @@
-To generate docs, run:
-doxygen
+To generate docs, use cmake.
+From the build directory run:
+make doc

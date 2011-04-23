@@ -47,14 +47,28 @@ namespace objcog
    */
   struct DbClient
   {
-    typedef boost::archive::binary_iarchive ia;
-    typedef boost::archive::binary_oarchive oa;
-    typedef boost::function<void(std::string, const char* data, size_t length)> unblob_sig;
   public:
-
+    typedef boost::archive::binary_iarchive ia;//!< \brief The input archive type. Binary until convinced otherwise.
+    typedef boost::archive::binary_oarchive oa;//!< \brief The output archive type. Binary until convinced otherwise.
+    /**
+     * \brief The signature for unblobbing data from the db.
+     */
+    typedef boost::function<void(const std::string& meta_data, const char* data, size_t length)> unblob_sig;
 
     /**
-     * virtual destructor, as this is an abstract interface.
+     * \brief A template detail structure, that gives a typedef for a data callback signature.
+     * \tparam DataT The datatype that determines the callback signature.
+     */
+    template<typename DataT>
+      struct callback
+      {
+        /**A callback function, that the unblobber will thunk to, after deserialization
+         */
+        typedef boost::function<void(const std::string& meta, const DataT& data)> signature;
+      };
+
+    /**
+     * \brief virtual destructor, as this is an abstract interface.
      */
     virtual ~DbClient()
     {
@@ -81,6 +95,7 @@ namespace objcog
 
     /**
      * \brief Store data, by type and a key, with meta info for indexing purposes.
+     * @tparam DataT The data type to retrieve.
      * @param collection_key Data is stored in unique collections based on this key and the typename.
      * @param meta_info A JSON string representing the meta info for this blob.
      * @param data This object will be persisted as a binary blob in the database, using boost::serialization
@@ -94,7 +109,7 @@ namespace objcog
     /**
      * \brief Retrieve data from the database given a type and query.
      * The on_each callback will be called for every result returned.
-     *
+     * @tparam DataT The data type to retrieve.
      * @param collection_key The key, one that was used during store.
      * @param query A JSON string query (reference http://www.mongodb.org/display/DOCS/Querying)
      * @param on_each This is of the form : void(const std::string& meta, const DataT&), and will be called with the
@@ -102,7 +117,7 @@ namespace objcog
      */
     template<typename DataT>
       void retrieve(const std::string& collection_key, const std::string& query,
-                    typename boost::function<void(const std::string& meta, const DataT&)> on_each)
+                    typename callback<DataT>::signature on_each)
       {
         retrieve<DataT, ia> (collection_key, query, on_each);
       }
@@ -123,11 +138,25 @@ namespace objcog
     {
       return host_name_;
     }
+    /**
+     * \brief Some predefined database backends
+     */
     enum DbType
     {
-      MongoDB = 1, FilesystemDB = 2
+      MongoDB = 1, //!< MongoDB Uses mongodb on the backend, namespace should be a simple name, hostname localhost, ip
+      FilesystemDB = 2
+    //!< FilesystemDB Uses filesystem for the database backend.
     };
-    static boost::shared_ptr<DbClient> createClient(std::string name_space, const std::string& host_name, DbType dbtype);
+
+    /**
+     * \brief A client factory, meant to hide implementation details from the user.
+     * @param name_space The namespace for the database, think 'objcog' or '/home/database'
+     * @param host_name localhost, or 10.0.1.13, etc.
+     * @param dbtype The database backend specifier.
+     * @return
+     */
+    static boost::shared_ptr<DbClient> createClient(const std::string& name_space, const std::string& host_name,
+                                                    DbType dbtype);
   protected:
     /**
      * @param name_space The namespace for the database, think 'objcog' or '/home/database'
@@ -172,7 +201,6 @@ namespace objcog
      */
     virtual void drop_impl() = 0;
 
-
   private:
     template<typename DataT, typename archive>
       void retrieve(const std::string& collection_key, const std::string& query,
@@ -192,17 +220,29 @@ namespace objcog
       }
 
     /**
-     * \brief A for each operator for deserializing binary blobs.
+     * \brief A foreach operator for deserializing binary blobs into type DataT
+     * @tparam DataT The data type to convert binary blobs to. This must have boost::serialization functions defined.
+     * @tparam archive boost::serialization archive type.
      */
     template<typename DataT, typename archive>
       struct unblobber
       {
-        typedef boost::function<void(const std::string& meta, const DataT&)> data_callback;
-        unblobber(data_callback c) :
+        typedef typename callback<DataT>::signature callback_t;
+        /**
+         * @param c The callback, the unblobber calls this after deserialization.  Use a
+         */
+        unblobber(callback_t c) :
           on_each(c)
         {
         }
-        void operator()(const std::string& meta, const char* data, size_t length)
+
+        /**
+         * \brief takes raw binary blob and turns it into type DataT, then
+         * @param meta_data
+         * @param data
+         * @param length
+         */
+        void operator()(const std::string& meta_data, const char* data, size_t length)
         {
           //fill the stringbuf with data.
           std::stringbuf sb;
@@ -212,14 +252,14 @@ namespace objcog
           archive ia(sb);
           // read class state from archive
           ia >> obj;
-          on_each(meta, obj);
+          //thunk the deserialized type to our on_each callback
+          on_each(meta_data, obj);
         }
-        data_callback on_each;
+        callback_t on_each;
         DataT obj;
       };
 
     std::string namespace_, host_name_;
   };
-
 
 }
