@@ -52,7 +52,8 @@ namespace objcog
       }
     }
 
-    void store_impl(const std::string& key, const std::string& type_name, const std::string& meta,  const char* data, size_t length)
+    void store_impl(const std::string& key, const std::string& type_name, const std::string& meta, const char* data,
+                    size_t length)
     {
       try
       {
@@ -61,9 +62,9 @@ namespace objcog
         mongo::BSONObj meta_obj = mongo::fromjson(meta);
         b.appendElements(meta_obj);
         b.append("__meta_data__", meta_obj);
-        b.appendBinData("__binary_data__",length, mongo::ByteArray,data);
-        connection_.insert(resolveFullCollectionName(key,type_name), b.obj());
-        connection_.ensureIndex(resolveFullCollectionName(key,type_name), meta_obj);
+        b.appendBinData("__binary_data__", length, mongo::ByteArray, data);
+        connection_.insert(resolveFullCollectionName(key, type_name), b.obj());
+        connection_.ensureIndex(resolveFullCollectionName(key, type_name), meta_obj);
         return;
       }
       catch (const mongo::DBException& e)
@@ -72,30 +73,83 @@ namespace objcog
       }
     }
 
-    void retrieve_impl(const std::string& key, const std::string& type_name, std::string query, DbClient::unblob_sig on_each)
+    struct MongoCursor : Cursor_impl
+    {
+
+      MongoCursor(std::auto_ptr<mongo::DBClientCursor> cursor) :
+        cursor(cursor)
+      {
+        if (this->cursor->more())
+        {
+          p = this->cursor->next();
+          ended = false;
+        }
+        else
+          ended = true;
+      }
+
+      ~MongoCursor()
+      {
+      }
+
+      std::pair<const char*, size_t> getData()
+      {
+        if(end()) throw std::logic_error("This iterator is past the end...");
+        std::pair<const char*, size_t> data;
+        int length;
+        blob = p.getField("__binary_data__");
+        data.first = blob.binData(length);
+        data.second = length;
+        return data;
+      }
+      std::string getMetaData()
+      {
+        if(end()) throw std::logic_error("This iterator is past the end...");
+        mongo::BSONObj meta = p.getObjectField("__meta_data__");
+        return meta.toString();
+      }
+      Cursor_impl& operator++()
+      {
+        if (cursor->more())
+        {
+          p = cursor->next();
+          ended = false;
+        }
+        else
+          ended = true;
+        return *this;
+      }
+      virtual bool end()
+      {
+        return ended;
+      }
+      bool ended;
+      std::auto_ptr<mongo::DBClientCursor> cursor;
+      mongo::BSONObj p;
+      mongo::BSONElement blob;
+    };
+
+    boost::shared_ptr<Cursor_impl> query_impl(const std::string& collection_key, const std::string& type_name,
+                                              std::string query)
     {
       mongo::BSONObj mongo_query = mongo::fromjson(query);
-      boost::scoped_ptr<mongo::DBClientCursor> cursor(connection_.query(resolveFullCollectionName(key,type_name), mongo_query));
-      while (cursor->more())
-      {
-        mongo::BSONObj p = cursor->next();
-        mongo::BSONObj meta = p.getObjectField("__meta_data__");
-        mongo::BSONElement blob = p.getField("__binary_data__");
-
-        int length;
-        const char * b = blob.binData(length);
-        on_each(meta.toString(), b, length);
-      }
+      boost::shared_ptr<Cursor_impl> c(
+                                       new MongoCursor(
+                                                       connection_.query(
+                                                                         resolveFullCollectionName(collection_key,
+                                                                                                   type_name),
+                                                                         mongo_query)));
+      return c;
     }
 
     void drop_impl()
     {
       BOOST_FOREACH( std::string x, connection_.getCollectionNames(getNamespace()))
-          connection_.dropCollection(x);
-      connection_.dropDatabase(getNamespace(),0);
+              connection_.dropCollection(x);
+      connection_.dropDatabase(getNamespace(), 0);
     }
 
-    std::string resolveFullCollectionName(const std::string& key, const std::string& type_name)
+    std::string resolveFullCollectionName(const std::string& key, const std::string& type_name) const
     {
       //only letters, numbers and underscores
       static const boost::regex e("^[a-zA-Z0-9_]*$");
@@ -107,7 +161,8 @@ namespace objcog
     mongo::DBClientConnection connection_;
   };
 
-  boost::shared_ptr<DbClient> DbClient::createClient(const std::string& name_space, const std::string& host_name, DbType dbtype)
+  boost::shared_ptr<DbClient> DbClient::createClient(const std::string& name_space, const std::string& host_name,
+                                                     DbType dbtype)
   {
     switch (dbtype)
     {
@@ -117,7 +172,7 @@ namespace objcog
         return boost::shared_ptr<DbClient>(new DbClientMongoDB(name_space, host_name));
         break;
     }
-    return  boost::shared_ptr<DbClient>();
+    return boost::shared_ptr<DbClient>();
   }
 
 }

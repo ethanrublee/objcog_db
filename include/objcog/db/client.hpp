@@ -41,6 +41,71 @@
 
 namespace objcog
 {
+
+  struct Cursor_impl
+  {
+    virtual ~Cursor_impl()
+    {
+    }
+    virtual std::pair<const char*, size_t> getData() = 0;
+    virtual std::string getMetaData() = 0;
+    virtual Cursor_impl& operator++() = 0;
+    virtual bool end() = 0;
+  };
+
+  template<typename DataT>
+    struct Cursor
+    {
+      typedef boost::archive::binary_iarchive ia;
+      Cursor(boost::shared_ptr<Cursor_impl> impl) :
+        cursor_impl(impl), data_read(false), meta_read(false)
+      {
+      }
+      const DataT& getData()
+      {
+        if (!data_read)
+        {
+          std::pair<const char*, size_t> bd = cursor_impl->getData();
+          //fill the stringbuf with data.
+          std::stringbuf sb;
+          sb.pubsetbuf(const_cast<char*> (bd.first), bd.second);
+          sb.pubseekpos(0);
+          // create and open an archive for input
+          ia ia(sb);
+          // read class state from archive
+          ia >> data;
+          data_read = true;
+        }
+        return data;
+      }
+      const std::string& getMetaData()
+      {
+        if (!meta_read)
+        {
+          meta_data = cursor_impl->getMetaData();
+          meta_read = true;
+        }
+        return meta_data;
+      }
+      Cursor& operator++()
+      {
+        meta_read = false;
+        data_read = false;
+        ++(*cursor_impl);
+        return *this;
+      }
+      bool end()
+      {
+        return cursor_impl->end();
+      }
+    private:
+      boost::shared_ptr<Cursor_impl> cursor_impl;
+      bool data_read; //populate on read
+      bool meta_read; //populate on read
+      DataT data;
+      std::string meta_data;
+    };
+
   /**
    * \brief the objcog database client interface, uses boost::serialization and templates
    * for typesafe extensible blob storage.
@@ -112,7 +177,7 @@ namespace objcog
      * @tparam DataT The data type to retrieve.
      * @param collection_key The key, one that was used during store.
      * @param query A JSON string query (reference http://www.mongodb.org/display/DOCS/Querying)
-     * @param on_each This is of the form : void(const std::string& meta, const DataT&), and will be called with the
+     * @param on_each This is of the form : void(const std::string& meta, const DataT& data), and will be called with the
      *        meta info and a const reference to the data.
      */
     template<typename DataT>
@@ -122,11 +187,17 @@ namespace objcog
         retrieve<DataT, ia> (collection_key, query, on_each);
       }
 
+    template<typename DataT>
+      Cursor<DataT> query(const std::string& collection_key, const std::string& query)
+      {
+        return Cursor<DataT> (query_impl(collection_key, typeid(DataT).name(), query));
+      }
+
     /**
      * \brief get the namespace for this client
      * @return a string, "objcog", "my_awesome_database"
      */
-    std::string getNamespace()
+    const std::string& getNamespace() const
     {
       return namespace_;
     }
@@ -134,7 +205,7 @@ namespace objcog
      * \brief get the hostname for this client
      * @return a string, "localhost", "10.0.1.20", "dri.local"
      */
-    std::string getHostname()
+    const std::string& getHostname() const
     {
       return host_name_;
     }
@@ -158,6 +229,7 @@ namespace objcog
     static boost::shared_ptr<DbClient> createClient(const std::string& name_space, const std::string& host_name,
                                                     DbType dbtype);
   protected:
+
     /**
      * @param name_space The namespace for the database, think 'objcog' or '/home/database'
      * @param host_name localhost, or 10.0.1.13, etc.
@@ -193,8 +265,8 @@ namespace objcog
      * @param query a json query
      * @param on_each void(std::string, const char* data, size_t length)
      */
-    virtual void retrieve_impl(const std::string& collection_key, const std::string& type_name, std::string query,
-                               unblob_sig on_each) = 0;
+    virtual boost::shared_ptr<Cursor_impl> query_impl(const std::string& collection_key, const std::string& type_name,
+                                                      std::string query) = 0;
 
     /**
      * Drop the entire table, under namespace.
@@ -202,12 +274,7 @@ namespace objcog
     virtual void drop_impl() = 0;
 
   private:
-    template<typename DataT, typename archive>
-      void retrieve(const std::string& collection_key, const std::string& query,
-                    typename boost::function<void(const std::string& meta, const DataT&)> on_each)
-      {
-        retrieve_impl(collection_key, typeid(DataT).name(), query, unblobber<DataT, archive> (on_each));
-      }
+
     template<typename DataT, typename archive>
       void store(const std::string& collection_key, const std::string& meta_info, const DataT& data)
       {
@@ -219,46 +286,17 @@ namespace objcog
         store_impl(collection_key, typeid(DataT).name(), meta_info, data_str.c_str(), data_str.size());
       }
 
-    /**
-     * \brief A foreach operator for deserializing binary blobs into type DataT
-     * @tparam DataT The data type to convert binary blobs to. This must have boost::serialization functions defined.
-     * @tparam archive boost::serialization archive type.
-     */
     template<typename DataT, typename archive>
-      struct unblobber
+      void retrieve(const std::string& collection_key, const std::string& q,
+                    typename boost::function<void(const std::string& meta, const DataT&)> on_each)
       {
-        typedef typename callback<DataT>::signature callback_t;
-        /**
-         * @param c The callback, the unblobber calls this after deserialization.  Use a
-         */
-        unblobber(callback_t c) :
-          on_each(c)
+        Cursor<DataT> cursor(query<DataT> (collection_key, q));
+        while (!cursor.end())
         {
+          on_each(cursor.getMetaData(), cursor.getData());
+          ++cursor;
         }
-
-        /**
-         * \brief takes raw binary blob and turns it into type DataT, then
-         * @param meta_data
-         * @param data
-         * @param length
-         */
-        void operator()(const std::string& meta_data, const char* data, size_t length)
-        {
-          //fill the stringbuf with data.
-          std::stringbuf sb;
-          sb.pubsetbuf(const_cast<char*> (data), length);
-          sb.pubseekpos(0);
-          // create and open an archive for input
-          archive ia(sb);
-          // read class state from archive
-          ia >> obj;
-          //thunk the deserialized type to our on_each callback
-          on_each(meta_data, obj);
-        }
-        callback_t on_each;
-        DataT obj;
-      };
-
+      }
     std::string namespace_, host_name_;
   };
 
