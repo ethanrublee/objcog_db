@@ -1,7 +1,5 @@
 == Pre-Reqs ==
-mongodb - 
-  sudo apt-get install mongodb-dev
-boost
+mongodb - http://www.mongodb.org/display/DOCS/Ubuntu+and+Debian+packages
 cmake
 == optional Pre-Reqs ==
 opencv (a non rosinstall version)
