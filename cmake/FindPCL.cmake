@@ -112,7 +112,7 @@ foreach(component ${PCL_FIND_COMPONENTS})
   string(TOUPPER "${pcl_component}_INCLUDE_DIR" PCL_COMPONENT_INCLUDE_DIR)
   string(TOUPPER "${pcl_component}_LIBRARY" PCL_COMPONENT_LIBRARY)
   
-  pkg_check_modules(${PC_PCL_COMPONENT} QUIET ${pcl_component})
+  pkg_check_modules(${PC_PCL_COMPONENT}  ${pcl_component})
   set(${PCL_COMPONENT_DEFINITIONS} ${${PC_PCL_COMPONENT}_CFLAGS_OTHER})
   mark_as_advanced(${PCL_COMPONENT_DEFINITIONS})
 
