@@ -29,6 +29,7 @@ find_package(PythonLibs)
 find_package(MongoDB)
 find_package(OpenCV)
 find_package(PCL)
+find_package(CURL)
 
 #includes
 include_directories(
@@ -38,12 +39,10 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-set(srcs src/client.cpp)
+set(srcs src/client.cpp src/couchdb.cpp src/mongodb.cpp)
 
 if(OpenCV_FOUND)
 set(srcs ${srcs} src/cv.cpp)
-
-
 endif()
 
 add_library(objcog_db SHARED ${srcs})
@@ -54,6 +53,7 @@ target_link_libraries(objcog_db
   ${MongoDB_LIBRARIES}
   ${PYTHON_LIBRARIES}
   ${OpenCV_LIBRARIES}
+  ${CURL_LIBRARIES}
   )
   
 

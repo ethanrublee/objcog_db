@@ -50,7 +50,6 @@ namespace boost
           ar & *data;
           ++data;
         }
-
       }
 
     template<class Archive>
@@ -67,7 +66,6 @@ namespace boost
           ar & *data;
           ++data;
         }
-
       }
 
   } // namespace serialization

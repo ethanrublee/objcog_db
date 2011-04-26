@@ -215,8 +215,8 @@ namespace objcog
     enum DbType
     {
       MongoDB = 1, //!< MongoDB Uses mongodb on the backend, namespace should be a simple name, hostname localhost, ip
-      FilesystemDB = 2
-    //!< FilesystemDB Uses filesystem for the database backend.
+      FilesystemDB = 2,     //!< FilesystemDB Uses filesystem for the database backend.
+      CouchDB = 3, //!< CouchDB couchdb based db.
     };
 
     /**
