@@ -34,10 +34,96 @@
 #include <boost/foreach.hpp>
 #include <boost/thread/mutex.hpp>
 
+#include <cstdio>
+
 #define DEFAULT_COUCHDB_URL "http://localhost:5984"
 
 namespace objcog
 {
+
+//  struct cURL : boost::noncopyable
+//  {
+//    /*
+//     * This example shows a HTTP PUT operation. PUTs a file given as a command
+//     * line argument to the URL also given on the command line.
+//     *
+//     * This example also uses its own read callback.
+//     *
+//     * Here's an article on how to setup a PUT handler for Apache:
+//     * http://www.apacheweek.com/features/put
+//     */
+//
+//    static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
+//    {
+//      size_t retcode;
+//
+//      /* in real-world cases, this would probably get this data differently
+//         as this fread() stuff is exactly what the library already would do
+//         by default internally */
+//      retcode = fread(ptr, size, nmemb, (FILE*)stream);
+//
+//      fprintf(stderr, "*** We read %d bytes from file\n", (int)retcode);
+//
+//      return retcode;
+//    }
+//
+//    /* curl calls this routine to get more data */
+//    static size_t write_callback(char *buffer,
+//                                 size_t size,
+//                                 size_t nitems,
+//                                 void *userp)
+//    {
+//      std::cout << buffer << std::endl;
+//      return size;
+//    }
+//
+//    cURL() :
+//      curl_(curl_easy_init())
+//    {
+//      if(curl_ == NULL)
+//        throw std::runtime_error("Unable to connect CURL.");
+//
+//      curl_easy_setopt(curl_, CURLOPT_READFUNCTION, cURL::read_callback);
+//      curl_easy_setopt(curl_, CURLOPT_WRITEFUNCTION, cURL::write_callback);
+//
+//
+//    }
+//    ~cURL()
+//    {
+//      curl_easy_cleanup(curl_);
+//    }
+//    void perform( )
+//    {
+//      curl_easy_perform(curl_);
+//    }
+//    void setURL(const std::string& url)
+//    {
+//      curl_easy_setopt(curl_, CURLOPT_URL, url.c_str());
+//    }
+//
+//    void put()
+//    {
+//      /* HTTP PUT please */
+//      curl_easy_setopt(curl_, CURLOPT_PUT, 1L);
+//    }
+//
+//
+//    CURL * curl_;
+//  };
+//
+//  struct cURL_GS
+//  {
+//    cURL_GS()
+//    {
+//      std::cout << "curl init" << std::endl;
+//      curl_global_init(CURL_GLOBAL_ALL);
+//    }
+//    ~cURL_GS()
+//    {
+//      std::cout << "curl cleanup" << std::endl;
+//      curl_global_cleanup();
+//    }
+//  };
 
   struct CouchCursor : Cursor_impl
   {
@@ -74,19 +160,19 @@ namespace objcog
   struct CouchDBClient : public DbClient
   {
     CouchDBClient(const std::string& name_space, const std::string& host_name) :
-      DbClient(name_space, host_name), curl_(NULL)
+      DbClient(name_space, host_name)
+     //,
+      //curl_()
     {
     }
     ~CouchDBClient()
     {
-      if (curl_)
-        curl_easy_cleanup(curl_);
     }
 
   protected:
     void connect_impl()
     {
-      curl_ = curl_easy_init();
+     // curl_.reset(new cURL());
     }
 
     void store_impl(const std::string& key, const std::string& type_name, const std::string& meta, const char* data,
@@ -114,52 +200,14 @@ namespace objcog
       return str(boost::format("%s.%s%s") % getNamespace() % key % type_name);
     }
 
-    static CURL * curl_init()
-    {
-      CURL * curl = curl_easy_init();
-      return curl;
-    }
-
-    CURL * curl_;
+   // boost::scoped_ptr<cURL> curl_;
   };
 
-  struct cURL : boost::noncopyable
-  {
-    cURL() :
-      curl_(curl_easy_init())
-    {
-      if(curl_ == NULL)
-        throw std::runtime_error("Unable to connect CURL.");
-    }
-    ~cURL()
-    {
-      curl_easy_cleanup(curl_);
-    }
-    void perform()
-    {
-      curl_easy_perform(curl_);
-    }
-    CURL * curl_;
 
-  };
-
-  struct cURL_GS
-  {
-    cURL_GS()
-    {
-      std::cout << "curl init" << std::endl;
-      curl_global_init(CURL_GLOBAL_ALL);
-    }
-    ~cURL_GS()
-    {
-      std::cout << "curl cleanup" << std::endl;
-      curl_global_cleanup();
-    }
-  };
 
   namespace
   {
-    cURL_GS curl_init_cleanup;
+ //   cURL_GS curl_init_cleanup;
 
   }
 
@@ -167,5 +215,7 @@ namespace objcog
   {
     return boost::shared_ptr<DbClient>(new CouchDBClient(name_space, host_name));
   }
+#if __NAME_IS_MAIN__
 
+#endif
 }

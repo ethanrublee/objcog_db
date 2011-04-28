@@ -57,9 +57,41 @@ target_link_libraries(objcog_db
   )
   
 
+
 add_executable(simple_test test/simple_test.cpp)
 target_link_libraries(simple_test objcog_db  ${Boost_LIBRARIES})
   
+add_executable(couch_surfing test/couch_surfing.cpp)
+target_link_libraries(couch_surfing objcog_db  ${Boost_LIBRARIES}   ${CURL_LIBRARIES})
+
+macro(bpmodule NAME)
+
+  add_library(${NAME}_bpmodule SHARED
+    ${ARGN}
+    )
+
+  set_target_properties(${NAME}_bpmodule
+    PROPERTIES
+    OUTPUT_NAME ${NAME}
+    PREFIX ""
+    #SUFFIX ".pyd"
+    )
+
+  target_link_libraries(${NAME}_bpmodule
+    ${Boost_LIBRARIES}
+    ${PYTHON_LIBRARIES}
+    )
+endmacro()
+
+macro(link_bpmodule NAME)
+  target_link_libraries(${NAME}_bpmodule
+    ${ARGN}
+  )
+endmacro()
+
+bpmodule(objcog_db src/pywrap.cpp)
+link_bpmodule(objcog_db objcog_db)
+
 if(OpenCV_FOUND AND PCL_FOUND)
 message(STATUS "building opencv and pcl samples ...")
 endif()
