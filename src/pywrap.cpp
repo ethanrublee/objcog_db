@@ -58,18 +58,18 @@ namespace objcog
         throw std::logic_error("get not implemented.");
     }
 
+   static void wrap_document()
+    {
+      //use private names so that python people know these are internal
+      bp::class_<Document, boost::shared_ptr<Document>, boost::noncopyable>("_DocumentCpp", bp::no_init);
+      bp::class_<DocumentWrap, boost::shared_ptr<DocumentWrap>, boost::noncopyable> doc("_DocumentBase");
+
+      //these happen to be unnecessary.
+      //doc.def("put", bp::pure_virtual(&Document::put_impl));
+      //doc.def("get", bp::pure_virtual(&Document::get_impl));
+
+    }
   };
-
-
-  void wrapLoad()
-  {
-    //use private names so that python people know these are internal
-    bp::class_<Document, boost::shared_ptr<Document>, boost::noncopyable>("_DocumentCpp", bp::no_init);
-    bp::class_<DocumentWrap, boost::shared_ptr<DocumentWrap>, boost::noncopyable> l("_DocumentBase");
-    l.def("put", bp::pure_virtual(&Document::put_impl));
-    l.def("get", bp::pure_virtual(&Document::get_impl));
-
-  }
 
   void use_document(Document& doc)
   {
@@ -89,7 +89,7 @@ namespace objcog
 BOOST_PYTHON_MODULE(objcog_db)
 {
   //wrap all modules
-  objcog::wrapLoad();
+  objcog::DocumentWrap::wrap_document();
 
   bp::def("use_document", objcog::use_document);
 }

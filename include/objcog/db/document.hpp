@@ -50,7 +50,6 @@ namespace objcog
     typedef boost::shared_ptr<Document> Ptr;
     typedef boost::shared_ptr<const Document> ConstPtr;
 
-
     Document()
     {
     }
@@ -104,7 +103,7 @@ namespace objcog
     static std::string name_of(const std::type_info &ti);
 
     template<typename T>
-     static std::string name_of()
+      static std::string name_of()
       {
         return name_of(typeid(T));
       }
@@ -118,8 +117,6 @@ namespace objcog
     virtual void put_impl(const std::string& key, const std::string& type_name, const std::string& buffer) = 0;
 
     virtual void get_impl(const std::string& key, const std::string& type_name, std::string& buffer) const = 0;
-
-    friend void objcog::wrapLoad();
   };
 
 }
