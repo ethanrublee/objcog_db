@@ -26,7 +26,7 @@ find_package(Boost COMPONENTS
   regex
   )
 find_package(PythonLibs)
-find_package(OpenCV)
+find_package(OpenCV REQUIRED)
 
 #includes
 include_directories(
