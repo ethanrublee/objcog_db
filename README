@@ -1,9 +1,13 @@
 == Pre-Reqs ==
-mongodb - http://www.mongodb.org/display/DOCS/Ubuntu+and+Debian+packages
 cmake
+boost
+python couchdb client ( version > 0.8 )
+  sudo easy_install CouchDB
+  http://code.google.com/p/couchdb-python/
+
+ 
 == optional Pre-Reqs ==
 opencv (a non rosinstall version)
-pcl (a non rosinstall version)
 
 == cmake build ==
 mkdir build
@@ -11,6 +15,6 @@ cd build
 cmake ..
 make
 
-== try the samples ==
-build/bin/*
-Run these from the root source path ( so that they find files in the data directory )
+== python path ==
+append the build/lib folder to your PYTHONPATH environment variable.
+Then try running the python/document.py script
