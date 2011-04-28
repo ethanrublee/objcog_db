@@ -29,93 +29,60 @@
  */
 #include <boost/python.hpp>
 #include <boost/python/raw_function.hpp>
-#include <objcog/db/Session.hpp>
+#include <objcog/db/document.hpp>
 
 namespace bp = boost::python;
 
 namespace objcog
 {
-  struct LoadWrap : Load, bp::wrapper<Load>
+  struct DocumentWrap : Document, bp::wrapper<Document>
 
   {
 
-    virtual void add_impl(const std::string& key, const std::string& buffer)
+    virtual void put_impl(const std::string& key, const std::string& type_name, const std::string& buffer)
     {
-      if (bp::override add = this->get_override("add"))
-        add(key, buffer);
+      if (bp::override put = this->get_override("put"))
+        put(key,type_name,buffer);
       else
-        throw std::logic_error("add");
+        throw std::logic_error("put not implemented.");
     }
 
-    virtual void get_impl(const std::string& key, std::string& buffer) const
+    virtual void get_impl(const std::string& key, const std::string& type_name, std::string& buffer) const
     {
       if (bp::override get = this->get_override("get"))
       {
-        bp::object result = get(key);
+        bp::object result = get(key,type_name);
         buffer = bp::extract<std::string>(result);
       }
       else
-        throw std::logic_error("get is not overridden it seems");
+        throw std::logic_error("get not implemented.");
     }
 
   };
 
-  struct TrainingSessionWrap : TrainingSession, bp::wrapper<TrainingSession>
-  {
-
-    virtual Load::Ptr makeLoad()
-    {
-      if (bp::override app = this->get_override("makeLoad"))
-      {
-        bp::object result = app();
-        return bp::extract<Load::Ptr>(result);
-      }
-      else
-        throw std::logic_error("append is not overridden it seems");
-    }
-  };
 
   void wrapLoad()
   {
     //use private names so that python people know these are internal
-    bp::class_<Load, boost::shared_ptr<Load>, boost::noncopyable>("_LoadCpp", bp::no_init);
-    bp::class_<LoadWrap, boost::shared_ptr<LoadWrap>, boost::noncopyable> l("_LoadBase");
-    l.def("add", bp::pure_virtual(&Load::add_impl));
-    l.def("get", bp::pure_virtual(&Load::get_impl));
+    bp::class_<Document, boost::shared_ptr<Document>, boost::noncopyable>("_DocumentCpp", bp::no_init);
+    bp::class_<DocumentWrap, boost::shared_ptr<DocumentWrap>, boost::noncopyable> l("_DocumentBase");
+    l.def("put", bp::pure_virtual(&Document::put_impl));
+    l.def("get", bp::pure_virtual(&Document::get_impl));
 
-    //use private names so that python people know these are internal
-    bp::class_<TrainingSession, boost::shared_ptr<TrainingSession>, boost::noncopyable>("_TrainingSessionCpp",
-                                                                                        bp::no_init);
-    bp::class_<TrainingSessionWrap, boost::shared_ptr<TrainingSessionWrap>, boost::noncopyable>
-                                                                                                ts(
-                                                                                                   "_TrainingSessionBase");
-    ts.def("makeLoad", bp::pure_virtual(&TrainingSession::makeLoad));
-    ts.def("append", &TrainingSession::append);
   }
 
-  void useLoad(Load& l)
+  void use_document(Document& doc)
   {
-    l.add<std::string> ("foo", "String data");
-    l.add<float> ("bar", 3.14f);
+    doc.put<std::string> ("foo", "String data");
+    doc.put<float> ("bar", 3.14f);
 
     float f;
-    l.get<float> ("bar", f);
+    doc.get<float> ("bar", f);
     std::cout << "I got a " << f << std::endl;
 
     std::string s;
-    l.get("foo", s);
+    doc.get("foo", s);
     std::cout << "I got a " << s << std::endl;
-  }
-
-  void useSession(TrainingSession& session)
-  {
-    for(int i = 0; i < 5; i++)
-    {
-      Load::Ptr load = session.makeLoad();
-      load->add("foobar",69);
-      load->add<std::string>("foo","a string val");
-    }
-
   }
 }
 
@@ -124,8 +91,6 @@ BOOST_PYTHON_MODULE(objcog_db)
   //wrap all modules
   objcog::wrapLoad();
 
-  bp::def("use_load", objcog::useLoad);
-  bp::def("use_session", objcog::useSession);
-
+  bp::def("use_document", objcog::use_document);
 }
 

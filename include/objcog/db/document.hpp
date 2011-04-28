@@ -43,72 +43,71 @@
 #define  SHOW() std::cout << __PRETTY_FUNCTION__ << std::endl
 namespace objcog
 {
-  //idea for type safety
-  //namespace StandardNames
-  //{
-  //  static const std::string IMAGE;
-  //  static const std::string IMAGE_LEFT;
-  //  static const std::string IMAGE_RIGHT;
-  //}
-  struct Load
+  struct Document
   {
     typedef boost::archive::binary_oarchive OutputArchive;
     typedef boost::archive::binary_iarchive InputArchive;
-    typedef boost::shared_ptr<Load> Ptr;
+    typedef boost::shared_ptr<Document> Ptr;
+    typedef boost::shared_ptr<const Document> ConstPtr;
 
-    Load()
+
+    Document()
     {
     }
-    virtual ~Load()
+    virtual ~Document()
     {
     }
-    /**
-     * \brief Add data to the
-     */
+
     template<typename DataT>
-      void add(const std::string& key, const DataT& data)
+      void put(const std::string& key, const DataT& data_in)
       {
-
-        //only letters, numbers and underscores
-        //verify symbolic name for the key (for json, python)
-        static const boost::regex e("^[a-zA-Z0-9_]*$");
-        if (!boost::regex_match(key, e))
-          throw std::runtime_error("bad key, must be symbolic : " + key);
-
+        confirm_key(key); //throws on bad key
         //get a binary blob for the data
         std::stringbuf sb;
         OutputArchive oa(sb);
-        oa << data;
+        oa << data_in;
         //FIXME get rid of extra copy here
         std::string data_str = sb.str();
-        add_impl(magic_key<DataT> (key), data_str);
+        put_impl(key, name_of<DataT> (), data_str);
       }
 
     template<typename DataT>
       void get(const std::string& key, DataT& data_out) const
       {
-        //SHOW();
+        confirm_key(key); //throws on bad key
+        //binary buffer
         std::string buffer;
-        get_impl(magic_key<DataT> (key), buffer);
-        //std::cout << "buffer size " << buffer.size() << std::endl;
+        get_impl(key, name_of<DataT> (), buffer);
+
         //fill the stringbuf with data.
         std::stringbuf sb;
         sb.pubsetbuf(const_cast<char*> (buffer.c_str()), buffer.size());
         sb.pubseekpos(0);
+
         // create and open an archive for input
         InputArchive ia(sb);
         // read class state from archive
         ia >> data_out;
       }
 
-    template<typename DataT>
-      std::string magic_key(const std::string& key) const
-      {
-        std::string magic_key = key + "_" + typeid(DataT).name();
-        return magic_key;
-      }
-
   protected:
+
+    static void confirm_key(const std::string& key)
+    {
+      //only letters, numbers and underscores
+      //verify symbolic name for the key (for json, python)
+      static const boost::regex e("^[a-zA-Z0-9_]*$");
+      if (!boost::regex_match(key, e))
+        throw std::runtime_error("bad key, must be symbolic : " + key);
+    }
+
+    static std::string name_of(const std::type_info &ti);
+
+    template<typename T>
+     static std::string name_of()
+      {
+        return name_of(typeid(T));
+      }
 
     /**
      * \brief Takes a byte buffer and stores it with a given unique key.
@@ -116,40 +115,11 @@ namespace objcog
      * @param length  Length in bytes of the byte buffer
      * @param key A symbolic name to store the buffer with.
      */
-    virtual void add_impl(const std::string& key, const std::string& buffer) = 0;
+    virtual void put_impl(const std::string& key, const std::string& type_name, const std::string& buffer) = 0;
 
-    virtual void get_impl(const std::string& key, std::string& buffer) const = 0;
+    virtual void get_impl(const std::string& key, const std::string& type_name, std::string& buffer) const = 0;
 
     friend void objcog::wrapLoad();
-  };
-
-  struct TrainingSession
-  {
-    typedef std::list<Load::Ptr> LoadList;
-    typedef LoadList::const_iterator const_iterator;
-    typedef LoadList::iterator iterator;
-
-    virtual Load::Ptr makeLoad() = 0;
-
-    void append(Load::Ptr load)
-    {
-      loads.push_back(load);
-    }
-
-    iterator begin()
-    {
-      return loads.begin();
-    }
-    const_iterator begin() const
-    {
-      return loads.begin();
-    }
-    const_iterator end() const
-    {
-      return loads.end();
-    }
-
-    LoadList loads;
   };
 
 }

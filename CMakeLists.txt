@@ -26,20 +26,16 @@ find_package(Boost COMPONENTS
   regex
   )
 find_package(PythonLibs)
-find_package(MongoDB)
 find_package(OpenCV)
-find_package(PCL)
-find_package(CURL)
 
 #includes
 include_directories(
   ${Boost_INCLUDE_DIRS}
-  ${MongoDB_INCLUDE_DIR}
   ${PYTHON_INCLUDE_PATH}
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-set(srcs src/client.cpp src/couchdb.cpp src/mongodb.cpp)
+set(srcs src/document.cpp)
 
 if(OpenCV_FOUND)
 set(srcs ${srcs} src/cv.cpp)
@@ -50,20 +46,11 @@ add_library(objcog_db SHARED ${srcs})
 
 target_link_libraries(objcog_db 
   ${Boost_LIBRARIES}
-  ${MongoDB_LIBRARIES}
   ${PYTHON_LIBRARIES}
   ${OpenCV_LIBRARIES}
-  ${CURL_LIBRARIES}
   )
+
   
-
-
-add_executable(simple_test test/simple_test.cpp)
-target_link_libraries(simple_test objcog_db  ${Boost_LIBRARIES})
-  
-add_executable(couch_surfing test/couch_surfing.cpp)
-target_link_libraries(couch_surfing objcog_db  ${Boost_LIBRARIES}   ${CURL_LIBRARIES})
-
 macro(bpmodule NAME)
 
   add_library(${NAME}_bpmodule SHARED
@@ -89,17 +76,13 @@ macro(link_bpmodule NAME)
   )
 endmacro()
 
+
 bpmodule(objcog_db src/pywrap.cpp)
 link_bpmodule(objcog_db objcog_db)
 
-if(OpenCV_FOUND AND PCL_FOUND)
-message(STATUS "building opencv and pcl samples ...")
-endif()
-
-
-if(OpenCV_FOUND)
-add_executable(mat_test test/mat_test.cpp)
-target_link_libraries(mat_test objcog_db  ${Boost_LIBRARIES} ${OpenCV_LIBS})
-endif()
+#if(OpenCV_FOUND)
+#add_executable(mat_test test/mat_test.cpp)
+#target_link_libraries(mat_test objcog_db  ${Boost_LIBRARIES} ${OpenCV_LIBS})
+#endif()
 
 add_subdirectory(doc)
