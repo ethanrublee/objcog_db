@@ -84,6 +84,8 @@ namespace objcog
     doc.get("foo", s);
     std::cout << "I got a " << s << std::endl;
   }
+
+  void insert_image(const std::string image_fname, const std::string& key, Document::Ptr doc);
 }
 
 BOOST_PYTHON_MODULE(objcog_db)
@@ -91,6 +93,7 @@ BOOST_PYTHON_MODULE(objcog_db)
   //wrap all modules
   objcog::DocumentWrap::wrap_document();
 
+  bp::def("insert_image", objcog::insert_image);
   bp::def("use_document", objcog::use_document);
 }
 

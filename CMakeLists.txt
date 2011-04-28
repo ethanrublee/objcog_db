@@ -38,7 +38,7 @@ include_directories(
 set(srcs src/document.cpp)
 
 if(OpenCV_FOUND)
-set(srcs ${srcs} src/cv.cpp)
+set(srcs ${srcs} src/cv.cpp src/common_inserts.cpp)
 endif()
 
 add_library(objcog_db SHARED ${srcs})
@@ -47,7 +47,7 @@ add_library(objcog_db SHARED ${srcs})
 target_link_libraries(objcog_db 
   ${Boost_LIBRARIES}
   ${PYTHON_LIBRARIES}
-  ${OpenCV_LIBRARIES}
+  ${OpenCV_LIBS}
   )
 
   
