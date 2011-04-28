@@ -17,9 +17,6 @@ class Load(objcog_db._LoadBase):
         self.doc = db[self.doc_id]
         
     def add(self, key, buffer):
-#        print "Adding a blob..."
-#        print "key", key
-#        print "buffer length: ", len(buffer)
         self.db.put_attachment(self.doc,buffer,key,"application/octet-stream") 
                 
     def get(self, key):
