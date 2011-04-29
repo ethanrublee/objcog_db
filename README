@@ -6,6 +6,7 @@ python couchdb client ( version > 0.8 )
   http://code.google.com/p/couchdb-python/
 
   or Debian package: wget http://ftp.mx.debian.org/debian/pool/main/p/python-couchdb/python-couchdb_0.8-1_all.deb
+doxypy: sudo apt-get install doxypy
  
 == optional Pre-Reqs ==
 opencv (a non rosinstall version)
