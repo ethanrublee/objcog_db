@@ -38,7 +38,7 @@ import couchdb
 
 ########################################################################################################################
 
-def create_db(db, couch):
+def create_collection(db, couch):
     try:
         couch.create(db)
     except couchdb.http.PreconditionFailed, e:
@@ -57,6 +57,6 @@ class ObjectDB:
         # that should be built using __init__ arguments
         self._couch = couchdb.Server()
 
-        self.sessions = create_db("training/sessions", self._couch)
-        self.documents = create_db("training/documents", self._couch)
-        self.types = create_db("types/types", self._couch)
+        self.sessions = create_collection("training/sessions", self._couch)
+        self.documents = create_collection("training/documents", self._couch)
+        self.types = create_collection("types/types", self._couch)

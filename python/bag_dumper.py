@@ -34,45 +34,13 @@
 
 # Author: Vincent Rabaud
 
-from document import *
-import objcog_db
+from document import Frame, Session
+from object_db import ObjectDB
 import os
-import object_db
 
 from optparse import OptionParser
 
 ########################################################################################################################
-
-class Session:
-    """
-    Class defining a session: a set of homogeneous data (same object, person, conditions
-    """
-    def __init__(self, tags, meta):
-        """ Define the different ids of the session
-        @param tags list of tags
-        @param meta_info a string that can be whatever meta info (json, xml ...)
-        """
-        self._tags = tags
-        self._meta_info = meta_info
-
-    def persists(self, db):
-        """ Persist the session to the db
-        @param db ObjectDB object to know where to persist it
-        """
-        session = {"type":"session", "tags":self._tags, "path_origin": training_path, "meta": self._meta_info}
-
-        doc_id, doc_rev = db.sessions.save(session)
-        # get the doc back with sessions[doc_id]
-        self.id = doc_id
-
-########################################################################################################################
-
-class Document:
-    """ A document to be stored in the db
-    """
-    def __init__(self, documents, session_id):
-        doc_meta = {"type":"frame", "session_id":session_id}
-        doc = Document(documents, doc_meta)
 
 if __name__ == '__main__':
     parser = OptionParser(description='Insert all images into the db from a specific folder.')
@@ -91,12 +59,12 @@ if __name__ == '__main__':
     print "Meta info is %s" % options.meta_info
     idx = 0
 
-    (session, session_id) = insert_session(sessions, options.training_path, options.meta_info)
+    object_db = ObjectDB()
+    session = Session(object_db, meta_info=options.meta_info)
 
     for file in sorted(os.listdir(options.training_path)):
         if(file.endswith(options.extension)):
-          print "putting %s" % file
-          frame = create_session_frame(documents, session_id)
-          objcog_db.insert_image(os.path.join(options.training_path, file), "image", frame)
-          idx += 1
-
+            print "putting %s" % file
+            frame = Frame(session)
+            frame.set_image(file)
+            frame.persist()
