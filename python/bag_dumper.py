@@ -36,35 +36,53 @@
 
 from document import Frame, Session
 from object_db import ObjectDB
-import os
-
 from optparse import OptionParser
+import os
+import subprocess
 
 ########################################################################################################################
 
 if __name__ == '__main__':
     parser = OptionParser(description='Insert all images into the db from a specific folder.')
-    parser.add_option("-p", "--training_path", dest="training_path",
-                  help="The path to all the training bags", metavar="PATH_TO_IMAGES",
-                   default='./')
-    parser.add_option("-e", "--extension", dest="extension",
-                  help="The extension", metavar="IMAGE_TYPE_EXTENSION",
-                   default='.png')
-    parser.add_option("-m", "--meta_info", dest="meta_info",
-                  help="The meta info for the given object.", metavar="META_INFO_JSON_STRING",
-                   default="Images from training path.")
+    parser.add_option("-p", "--training_path", dest="training_path", help="The path to all the training bags",
+                      metavar="PATH_TO_IMAGES", default='./')
+    parser.add_option("-m", "--meta_info", dest="meta_info", help="The meta info for the given object.",
+                      metavar="META_INFO_JSON_STRING", default="Images from training path.")
 
     (options, args) = parser.parse_args()
     print "Training directory is %s" % options.training_path
     print "Meta info is %s" % options.meta_info
-    idx = 0
 
     object_db = ObjectDB()
-    session = Session(object_db, meta_info=options.meta_info)
 
-    for file in sorted(os.listdir(options.training_path)):
-        if(file.endswith(options.extension)):
-            print "putting %s" % file
-            frame = Frame(session)
-            frame.set_image(file)
-            frame.persist()
+    # process every bag file
+    print 'Processing path %s' % options.training_path
+    for bag_file_name in sorted(os.listdir(options.training_path)):
+        bag_file_path = os.path.join(options.training_path, bag_file_name)
+        if bag_file_name.endswith('.bag') and os.path.isfile(bag_file_path):
+            print '* Processing bag %s' % bag_file_name
+
+            # create the temporary folder where we will dump data
+            tmp_path = os.path.join(options.training_path, '.' + bag_file_name)
+            if not os.path.isdir(tmp_path):
+                os.makedirs(tmp_path)
+
+            session = Session(object_db, meta_info=options.meta_info)
+
+            # uncompress the file
+            print 'rosrun tod_training bag_dumper -B%s -P%s -N%s --image image_mono --points2 points' %\
+                             (bag_file_path, tmp_path, bag_file_name)
+            process = subprocess.Popen('rosrun tod_training bag_dumper -B%s -P%s -N%s --image image_mono --points2 points' %
+                             (bag_file_path, tmp_path, bag_file_name), shell=True)
+            process.wait()
+
+            # store all the frames
+            bag_folder = os.path.join(tmp_path, bag_file_name)
+            for image_file_name in os.listdir(bag_folder):
+                image_file_path = os.path.join(bag_folder, image_file_name)
+                if (not image_file_name.endswith('.png')) or not os.path.isfile(image_file_path):
+                    continue
+                print '** Processing image %s' % image_file_name
+                frame = Frame(object_db, session)
+                frame.set_image(image_file_path)
+                frame.persist()

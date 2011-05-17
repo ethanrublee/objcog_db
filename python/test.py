@@ -34,38 +34,7 @@
 
 # Author: Vincent Rabaud
 
-import couchdb
 
-########################################################################################################################
-
-def create_collection(db, couch):
-    try:
-        couch.create(db)
-    except couchdb.http.PreconditionFailed, e:
-        if e[0][0]=='file_exists':
-            pass
-        else:
-            print 'Cannot create collection ' + db + ' on db: %s' % e
-            raise
-
-    return couch[db]
-
-class ObjectDB:
-    """
-    Class used to manipulate objects in the db and the db itself
-    """
-    def __init__(self):
-        """ Initialize the different object Databases
-        @param session a Session object
-        """
-        # that should be built using __init__ arguments
-        self._couch = couchdb.Server()
-
-        self.sessions = create_collection('training/sessions', self._couch)
-        self.documents = create_collection('training/documents', self._couch)
-        self.types = create_collection('types/types', self._couch)
-
-    def list(self):
-        """ Lists the different collections and objects in the database
-        """
-        
+if __name__ == '__main__':
+    # lists stuff that is contained in the database
+    

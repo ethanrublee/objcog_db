@@ -43,14 +43,20 @@ class Document(objcog_db._DocumentBase):
     """ Virtual base class for every DB document
     """
     _attributes = set()
-    
-    def __init__(self, db, tags=[] , meta_info={}):
+
+    def __init__(self, db, tags=None , meta_info=None):
         """ Base class
         """
         objcog_db._DocumentBase.__init__(self)
         self._db = db
-        self._tags = tags
-        self._meta_info = meta_info
+        if tags:
+            self._tags = tags
+        else:
+            self._tags = []
+        if meta_info:
+            self._meta_info = meta_info
+        else:
+            self._meta_info = {}
 
         # info we can only know after persistence
         self._doc_id = None
@@ -59,33 +65,35 @@ class Document(objcog_db._DocumentBase):
         # The attributes for the Type, that will be persisted to the db
         self._attributes = {}
 
-        # the db document itself
+        # the collection where the object will be saved
+        self._collection = None
+
+        # the db document itself (basically: collection[id])
         self._doc = None
 
-        # dependencies: when persisting the object, it will refer to those
+        # dependencies: when persisting the object, it will refer to those Documents
         self._dependencies = []
 
-        # the attributes of an object
-        self._attributes = {}
-
-        # flag indicating whether we have persisted the object
+        # flag indicating whether we have persisted the Document
         self._is_persisted = False
 
     def put(self, key, type_name, buffer):
         if not self._is_persisted:
             self.persist()
-        self.db.put_attachment(self._doc, buffer, key + type_name, "application/octet-stream")
+        self._collection.put_attachment(self._doc, buffer, key + type_name, "application/octet-stream")
 
     def get(self, key, type_name):
         if not self._is_persisted:
             self.persist()
-        attachment = self.db.get_attachment(self._doc, key + type_name, None)
+        attachment = self._collection.get_attachment(self._doc, key + type_name, None)
         return attachment.read()
 
     def persist(self, db=None):
         """ Persist an object to a database
         @param db db to persist the object to (the one from the constructor by default)
         """
+        if self._is_persisted:
+            return
         if db is None:
             db = self._db
         document = {'type':self.type(), 'tags':self._tags, 'meta': self._meta_info}
@@ -97,8 +105,8 @@ class Document(objcog_db._DocumentBase):
         # add info proper to the specific object
         document.update(self.data())
 
-        self._doc_id, self._doc_rev = db.save(document)
-        self._doc = db[self._doc_id]
+        self._doc_id, self._doc_rev = self._collection.save(document)
+        self._doc = self._collection[self._doc_id]
         self._is_persisted = True
 
     def data(self):
@@ -129,13 +137,14 @@ class Session(Document):
     Class defining a session: a set of homogeneous data (same object, person, conditions
     """
     _attributes = set()
-    
+
     def __init__(self, db, tags=[] , meta_info={}):
         """ Define the different ids of the session
         @param tags list of tags
         @param meta_info a string that can be whatever meta info (json, xml ...)
         """
         Document.__init__(self, db, tags, meta_info)
+        self._collection = db.sessions
 
     def data(self):
         return {}
@@ -150,20 +159,23 @@ class Frame(Document):
     """
     Class defining a session: a set of homogeneous data (same object, person, conditions
     """
-    def __init__(self, db, tags=[] , meta_info={}):
+    def __init__(self, db, session, tags=None , meta_info=None):
         """ Define the different ids of the session
         @param tags list of tags
         @param meta_info a string that can be whatever meta info (json, xml ...)
         """
         Document.__init__(self, db, tags, meta_info)
+        self._collection = db.documents
+
+        self._dependencies.append(session)
 
     def data(self):
-        return {'path_origin': self._attributes['training_path']}
+        return {}
 
-    def set_image(self, file):
+    def set_image(self, file_path):
         """
         """
-        self.put('image', 'image', file)
+        self.put('image', 'image', open(file_path))
 
     @staticmethod
     def type():
