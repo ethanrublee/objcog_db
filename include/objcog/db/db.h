@@ -10,10 +10,28 @@
 #include <map>
 #include <vector>
 
+#include <boost/any.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+
 #include <boost/shared_ptr.hpp>
 #include "opencv2/core/core.hpp"
 
 typedef std::string ObjectId;
+typedef std::string Field;
+typedef std::string FieldName;
+typedef std::string CollectionName;
+
+namespace db_serialization
+{
+template<class Archive, typename T>
+  void save(Archive & ar, const T & m);
+
+template<class Archive, typename T>
+  void load(const Archive & ar, T & m);
+} // namespace serialization
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -21,15 +39,44 @@ class Db
 {
 public:
   template<typename T>
-    void get(const ObjectId & object_id, const std::string key, T &object) const;
+    void get(const ObjectId & object_id, const FieldName &key, T &object) const;
+  template<typename T>
+    void set(const ObjectId & object_id, const FieldName &key, T &object) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class DbObject
+class Document
 {
+public:
   virtual void read(const Db & db, const ObjectId &object_id) = 0;
   virtual void write(const Db & db, const ObjectId &object_id) const = 0;
+  /** Extract a specific field from the pre-loaded Document
+   * @param field
+   * @param t
+   */
+  template<typename T>
+    void get(const FieldName &field, T & t) const
+    {
+      // TODO check if it is loaded
+      std::map<FieldName, boost::any>::const_iterator val = archives_.find(field);
+      if (val != archives_.end())
+        t = *val;
+    }
+  /** Extract a specific field from the pre-loaded Document
+   * @param field
+   * @param t
+   */
+  template<typename T>
+    void set(const FieldName &field, const T & t)
+    {
+      db_serialization::save<boost::archive::binary_oarchive, T>(archives_[field], t);
+    }
+private:
+  bool is_loaded_;
+  ObjectId object_id_;
+  std::map<FieldName, boost::any> archives_;
+  std::map<FieldName, Field> fields_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -42,7 +89,7 @@ template<typename T>
     {
     }
 
-    virtual QueryIterator(const Db& db, std::vector<std::string> & object_ids) :
+    QueryIterator(const Db& db, std::vector<std::string> & object_ids) :
         db_(db), object_ids_(object_ids)
     {
     }
@@ -86,19 +133,20 @@ template<typename T>
   class Query
   {
     Query();
-    void add_where();
+    void add_where(std::string & where, std::string & regex);
+    void add_collection(CollectionName & collection);
 
     QueryIterator<T> begin(const Db &db)
     {
       // Process the query and get the ids of several objects
       // TODO Call CouchDB and get a list of Object ID's
       std::vector<ObjectId> object_ids;
-      return QueryIterator(db, object_ids);
+      return QueryIterator<T>(db, object_ids);
     }
 
-    QueryIterator end()
+    QueryIterator<T> end()
     {
-      return QueryIterator::end();
+      return QueryIterator<T>::end();
     }
   };
 

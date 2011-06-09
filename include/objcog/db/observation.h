@@ -8,9 +8,11 @@
 #ifndef OBSERVATION_H_
 #define OBSERVATION_H_
 
+#include "cv.h"
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-class Observation : public DbObject
+class Observation : public Document
 {
 public:
   virtual void read(const Db & db, const ObjectId &object_id)
@@ -24,9 +26,6 @@ public:
 
   cv::Mat image_;
   //pcl::point_cloud pcd;
-private:
-  /** database unique identifier */
-  std::string object_id_;
 };
 
 #endif /* OBSERVATION_H_ */
