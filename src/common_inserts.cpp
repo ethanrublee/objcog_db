@@ -1,6 +1,5 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <boost/python.hpp>
 
 #include <objcog/db/document.hpp>
 #include <objcog/db/cv.hpp>

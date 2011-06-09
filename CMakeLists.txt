@@ -18,20 +18,18 @@ set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 #deps
 find_package(Boost COMPONENTS
-  python
   system
   serialization
   thread
   filesystem
   regex
   )
-find_package(PythonLibs)
+  
 find_package(OpenCV REQUIRED)
 
 #includes
 include_directories(
   ${Boost_INCLUDE_DIRS}
-  ${PYTHON_INCLUDE_PATH}
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
@@ -44,45 +42,47 @@ endif()
 add_library(objcog_db SHARED ${srcs})
 
 
+
 target_link_libraries(objcog_db 
   ${Boost_LIBRARIES}
-  ${PYTHON_LIBRARIES}
   ${OpenCV_LIBS}
   )
 
-  
-macro(bpmodule NAME)
 
-  add_library(${NAME}_bpmodule SHARED
-    ${ARGN}
-    )
-
-  set_target_properties(${NAME}_bpmodule
-    PROPERTIES
-    OUTPUT_NAME ${NAME}
-    PREFIX ""
-    #SUFFIX ".pyd"
-    )
-
-  target_link_libraries(${NAME}_bpmodule
-    ${Boost_LIBRARIES}
-    ${PYTHON_LIBRARIES}
-    )
-endmacro()
-
-macro(link_bpmodule NAME)
-  target_link_libraries(${NAME}_bpmodule
-    ${ARGN}
+#install headers
+set(DB_HEADERS
+  include/objcog/db/cv.h
+  include/objcog/db/cv.hpp
+  include/objcog/db/document.hpp
+  include/objcog/db/observation.h
   )
-endmacro()
 
+INSTALL(FILES ${DB_HEADERS}
+  DESTINATION include/objcog/db
+  COMPONENT main
+  )
 
-bpmodule(objcog_db src/pywrap.cpp)
-link_bpmodule(objcog_db objcog_db)
+#create an objcog_dbConfig.cmake for easy find_package(objcog_db)
+set(objcog_db_INCLUDE_DIRS ${CMAKE_INSTALL_PREFIX}/include)
+set(objcog_db_LIBRARIES objcog_db)
+set(objcog_db_LIBRARIES_DIR ${CMAKE_INSTALL_PREFIX}/lib)
 
-#if(OpenCV_FOUND)
-#add_executable(mat_test test/mat_test.cpp)
-#target_link_libraries(mat_test objcog_db  ${Boost_LIBRARIES} ${OpenCV_LIBS})
-#endif()
+configure_file(${CMAKE_SOURCE_DIR}/cmake/objcog_dbConfig.cmake.in 
+  ${CMAKE_BINARY_DIR}/unix_install/objcog_dbConfig.cmake @ONLY)
+  
+#create an ectoConfig.cmake for easy find_package(ecto)
+set(objcog_db_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include)
+set(objcog_db_LIBRARIES objcog_db)
+set(objcog_db_LIBRARIES_DIR ${LIBRARY_OUTPUT_PATH})
+
+configure_file(${CMAKE_SOURCE_DIR}/cmake/objcog_dbConfig.cmake.in 
+  ${CMAKE_BINARY_DIR}/objcog_dbConfig.cmake @ONLY)
+  
+  
+#install the ectoConfig.cmake
+INSTALL(FILES ${CMAKE_BINARY_DIR}/unix_install/objcog_dbConfig.cmake
+  DESTINATION share/objcog_db
+  COMPONENT main
+  )
 
 add_subdirectory(doc)
