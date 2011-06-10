@@ -45,23 +45,23 @@ template<class Archive, typename T>
 class Db
 {
 public:
-  template<typename Attachment>
-    void load_attachment(const ObjectId & object_id, const CollectionName &collection,
-                                 const FieldName &field_name, Attachment &attachment) const;
+  virtual void persist_fields(const ObjectId & object_id, const CollectionName &collection,
+                              std::map<FieldName, Field> fields) const;
 
-  virtual void load_field(const ObjectId & object_id, const CollectionName &collection, const FieldName &field_name,
-                          FieldName & field) const;
-
-  template<typename Attachment>
-    void persist_attachment(const ObjectId & object_id, const CollectionName &collection,
-                                    const FieldName &field, Attachment &attachment) const;
-
-  virtual void persist_field(const ObjectId & object_id, const CollectionName &collection, const FieldName &field_name,
-                             FieldName & field) const;
+  virtual void load_fields(const ObjectId & object_id, const CollectionName &collection,
+                           std::map<FieldName, Field> fields) const;
 
   virtual void query(const std::vector<CollectionName> collections, std::map<FieldName, std::string> regexps
                      , std::vector<ObjectId> & object_ids) const;
 };
+
+template<typename DbType, typename Attachment>
+  void load_attachment(const DbType&db, const ObjectId & object_id, const CollectionName &collection,
+                       const FieldName &field_name, Attachment &attachment) const;
+
+template<typename DbType, typename Attachment>
+  void persist_attachment(const DbType&db, const ObjectId & object_id, const CollectionName &collection,
+                          const FieldName &field, Attachment &attachment) const;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -76,11 +76,11 @@ public:
   {
   }
 
-  Document(const Db & db, const ObjectId &object_id) :
-      object_id_(object_id), db_(db)
+  Document(const Db & db, const CollectionName & collection, const ObjectId &object_id) :
+      object_id_(object_id), db_(db), collection_(collection)
   {
-    // TODO Figure out the collection from the DB
-    collection_ = "";
+    // Load all fields from the DB (not the attachments)
+    db_.load_fields(object_id_, collection_, fields_);
   }
 
   virtual ~Document();
@@ -109,8 +109,8 @@ public:
         {
       if (attachment->second.empty())
         continue;
-      // TODO, persist the attachment
-      db_.persist_attachment(object_id_, collection_, attachment->first, attachment->second);
+      // Persist the attachment
+      persist_attachment(db, object_id_, collection_, attachment->first, attachment->second);
     }
   }
 
@@ -158,7 +158,7 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template<typename T>
+template<Document T>
   class QueryIterator : public std::iterator<std::forward_iterator_tag, int>
   {
   public:
@@ -169,6 +169,8 @@ template<typename T>
     QueryIterator(const Db& db, std::vector<std::string> & object_ids) :
         db_(db), object_ids_(object_ids)
     {
+      // Load the first element in the db
+      object_->read();
     }
 
     QueryIterator<T> & operator++()
@@ -215,24 +217,22 @@ template<typename T>
      * @param field a field to match
      * @param regex the regular expression the field verifies, in TODO format
      */
-    void add_where(std::string & field, std::string & regex);
+    void add_where(FieldName & field, std::string & regex);
 
     /** Add collections that should be checked for specific fields
      * @param collection
      */
     void add_collection(CollectionName & collection);
 
-    QueryIterator<T> begin(const Db &db)
+    QueryIterator<T> query(const Db &db)
     {
       // Process the query and get the ids of several objects
-      // TODO Call CouchDB and get a list of Object ID's
       std::vector<ObjectId> object_ids;
+      db.query(collections_, regexes_, object_ids);
       return QueryIterator<T>(db, object_ids);
     }
-
-    QueryIterator<T> end()
-    {
-      return QueryIterator<T>::end();
-    }
+  private:
+    std::vector<CollectionName> collections_;
+    std::map<FieldName, std::string> regexes_;
   };
 
