@@ -10,6 +10,7 @@
 #include <map>
 #include <vector>
 
+#include <boost/foreach.hpp>
 #include <boost/any.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
@@ -19,10 +20,13 @@
 #include <boost/shared_ptr.hpp>
 #include "opencv2/core/core.hpp"
 
-typedef std::string ObjectId;
+typedef std::string CollectionName;
 typedef std::string Field;
 typedef std::string FieldName;
-typedef std::string CollectionName;
+typedef std::string ObjectId;
+typedef std::string RevisionId;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace db_serialization
 {
@@ -35,22 +39,81 @@ template<class Archive, typename T>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/** The main class that interact with the db
+ * A collection is similar to the term used in CouchDB. It could be a schema/table
+ */
 class Db
 {
 public:
-  template<typename T>
-    void get(const ObjectId & object_id, const FieldName &key, T &object) const;
-  template<typename T>
-    void set(const ObjectId & object_id, const FieldName &key, T &object) const;
+  template<typename Attachment>
+    void load_attachment(const ObjectId & object_id, const CollectionName &collection,
+                                 const FieldName &field_name, Attachment &attachment) const;
+
+  virtual void load_field(const ObjectId & object_id, const CollectionName &collection, const FieldName &field_name,
+                          FieldName & field) const;
+
+  template<typename Attachment>
+    void persist_attachment(const ObjectId & object_id, const CollectionName &collection,
+                                    const FieldName &field, Attachment &attachment) const;
+
+  virtual void persist_field(const ObjectId & object_id, const CollectionName &collection, const FieldName &field_name,
+                             FieldName & field) const;
+
+  virtual void query(const std::vector<CollectionName> collections, std::map<FieldName, std::string> regexps
+                     , std::vector<ObjectId> & object_ids) const;
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/** A Document holds fields (in the CouchDB sense) which are strings that are queryable, and attachments (that are
+ * un-queryable binary blobs)
+ */
 class Document
 {
 public:
-  virtual void read(const Db & db, const ObjectId &object_id) = 0;
-  virtual void write(const Db & db, const ObjectId &object_id) const = 0;
+  Document(const Db & db) :
+      db_(db)
+  {
+  }
+
+  Document(const Db & db, const ObjectId &object_id) :
+      object_id_(object_id), db_(db)
+  {
+    // TODO Figure out the collection from the DB
+    collection_ = "";
+  }
+
+  virtual ~Document();
+
+  virtual void persist() const
+  {
+    // Persist the object if it does not exist in the DB
+    if (object_id_.empty())
+    {
+      // TODO
+      object_id_ = "";
+    }
+
+    // Persist the fields first
+    for (std::map<FieldName, Field>::const_iterator field = fields_.begin(), field_end = fields_.end();
+        field != field_end; ++field)
+        {
+      // TODO persist the field for that object to the DB
+    }
+
+    // Persist the attachments
+    boost::any nothing_any;
+    for (std::map<FieldName, boost::any>::const_iterator attachment = attachments_.begin(), attachment_end =
+                                                             attachments_.end(); attachment != attachment_end;
+        ++attachment)
+        {
+      if (attachment->second.empty())
+        continue;
+      // TODO, persist the attachment
+      db_.persist_attachment(object_id_, collection_, attachment->first, attachment->second);
+    }
+  }
+
   /** Extract a specific field from the pre-loaded Document
    * @param field
    * @param t
@@ -58,24 +121,38 @@ public:
   template<typename T>
     void get(const FieldName &field, T & t) const
     {
-      // TODO check if it is loaded
-      std::map<FieldName, boost::any>::const_iterator val = archives_.find(field);
-      if (val != archives_.end())
+      // check if it is loaded
+      std::map<FieldName, boost::any>::const_iterator val = attachments_.find(field);
+      if ((val != attachments_.end()) && (!val->second.empty()))
+      {
         t = *val;
+        return;
+      }
+      else
+      {
+        // Otherwise, load it from the DB
+        // TODO : maybe we want to load all attachments first
+        db_.load_attachment(object_id_, collection_, field, t);
+        attachments_[field] = t;
+      }
     }
-  /** Extract a specific field from the pre-loaded Document
+
+  /** Add a specific field to a Document (that has been pre-loaded or not)
    * @param field
    * @param t
    */
   template<typename T>
     void set(const FieldName &field, const T & t)
     {
-      db_serialization::save<boost::archive::binary_oarchive, T>(archives_[field], t);
+      attachments_[field] = t;
     }
 private:
   bool is_loaded_;
-  ObjectId object_id_;
-  std::map<FieldName, boost::any> archives_;
+  mutable ObjectId object_id_;
+  mutable CollectionName collection_;
+  RevisionId revision_id;
+  const Db db_;
+  std::map<FieldName, boost::any> attachments_;
   std::map<FieldName, Field> fields_;
 };
 
@@ -133,7 +210,16 @@ template<typename T>
   class Query
   {
     Query();
-    void add_where(std::string & where, std::string & regex);
+
+    /** Add requirements for the documents to retrieve
+     * @param field a field to match
+     * @param regex the regular expression the field verifies, in TODO format
+     */
+    void add_where(std::string & field, std::string & regex);
+
+    /** Add collections that should be checked for specific fields
+     * @param collection
+     */
     void add_collection(CollectionName & collection);
 
     QueryIterator<T> begin(const Db &db)
