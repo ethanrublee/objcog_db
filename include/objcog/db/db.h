@@ -40,28 +40,33 @@ template<class Archive, typename T>
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /** The main class that interact with the db
- * A collection is similar to the term used in CouchDB. It could be a schema/table
+ * A collection is similar to the term used in CouchDB. It could be a schema/table in SQL
  */
 class Db
 {
 public:
+  virtual ~Db()
+  {
+  }
+  virtual ObjectId insert_object(const CollectionName &collection, const std::map<FieldName, Field> &fields) const;
+
   virtual void persist_fields(const ObjectId & object_id, const CollectionName &collection,
-                              std::map<FieldName, Field> fields) const;
+                              const std::map<FieldName, Field> &fields) const;
 
   virtual void load_fields(const ObjectId & object_id, const CollectionName &collection,
-                           std::map<FieldName, Field> fields) const;
+                           std::map<FieldName, Field> &fields) const;
 
-  virtual void query(const std::vector<CollectionName> collections, std::map<FieldName, std::string> regexps
+  virtual void query(const CollectionName &collection, const std::map<FieldName, std::string> &regexps
                      , std::vector<ObjectId> & object_ids) const;
 };
 
 template<typename DbType, typename Attachment>
   void load_attachment(const DbType&db, const ObjectId & object_id, const CollectionName &collection,
-                       const FieldName &field_name, Attachment &attachment) const;
+                       const FieldName &field_name, Attachment &attachment);
 
 template<typename DbType, typename Attachment>
   void persist_attachment(const DbType&db, const ObjectId & object_id, const CollectionName &collection,
-                          const FieldName &field, Attachment &attachment) const;
+                          const FieldName &field, Attachment &attachment);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -77,7 +82,7 @@ public:
   }
 
   Document(const Db & db, const CollectionName & collection, const ObjectId &object_id) :
-      object_id_(object_id), db_(db), collection_(collection)
+      object_id_(object_id), collection_(collection), db_(db)
   {
     // Load all fields from the DB (not the attachments)
     db_.load_fields(object_id_, collection_, fields_);
@@ -89,17 +94,9 @@ public:
   {
     // Persist the object if it does not exist in the DB
     if (object_id_.empty())
-    {
-      // TODO
-      object_id_ = "";
-    }
-
-    // Persist the fields first
-    for (std::map<FieldName, Field>::const_iterator field = fields_.begin(), field_end = fields_.end();
-        field != field_end; ++field)
-        {
-      // TODO persist the field for that object to the DB
-    }
+      object_id_ = db_.insert_object(collection_, fields_);
+    else
+      db_.persist_fields(object_id_, collection_, fields_);
 
     // Persist the attachments
     boost::any nothing_any;
@@ -110,7 +107,7 @@ public:
       if (attachment->second.empty())
         continue;
       // Persist the attachment
-      persist_attachment(db, object_id_, collection_, attachment->first, attachment->second);
+      persist_attachment(db_, object_id_, collection_, attachment->first, attachment->second);
     }
   }
 
@@ -119,7 +116,7 @@ public:
    * @param t
    */
   template<typename T>
-    void get(const FieldName &field, T & t) const
+    void get_attachment(const FieldName &field, T & t) const
     {
       // check if it is loaded
       std::map<FieldName, boost::any>::const_iterator val = attachments_.find(field);
@@ -132,7 +129,7 @@ public:
       {
         // Otherwise, load it from the DB
         // TODO : maybe we want to load all attachments first
-        db_.load_attachment(object_id_, collection_, field, t);
+        load_attachment(db_, object_id_, collection_, field, t);
         attachments_[field] = t;
       }
     }
@@ -142,7 +139,7 @@ public:
    * @param t
    */
   template<typename T>
-    void set(const FieldName &field, const T & t)
+    void set_attachment(const FieldName &field, const T & t)
     {
       attachments_[field] = t;
     }
@@ -158,81 +155,89 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template<Document T>
-  class QueryIterator : public std::iterator<std::forward_iterator_tag, int>
+class QueryIterator : public std::iterator<std::forward_iterator_tag, int>
+{
+public:
+  QueryIterator()
   {
-  public:
-    QueryIterator()
-    {
-    }
+  }
 
-    QueryIterator(const Db& db, std::vector<std::string> & object_ids) :
-        db_(db), object_ids_(object_ids)
-    {
-      // Load the first element in the db
-      object_->read();
-    }
+  QueryIterator(const Db& db, const CollectionName &collection, const std::vector<std::string> & object_ids) :
+      db_(db), collection_(collection), object_ids_(object_ids)
+  {
+    // Load the first element in the db
+    if (object_ids_.empty())
+      return;
+    object_ = boost::shared_ptr<Document>(new Document(db_, collection_, object_ids_.back()));
+    object_ids_.pop_back();
+  }
 
-    QueryIterator<T> & operator++()
+  QueryIterator & operator++()
+  {
+    // Move forward in the list of Objects to check
+    object_ids_.pop_back();
+    // Return the end iterator if we are done
+    if (object_ids_.empty())
     {
-      // Move forward in the list of Objects to check
-      object_ids_.pop_back();
-      // Return the end iterator if we are done
-      if (object_ids_.empty())
-        return QueryIterator();
+      object_ = boost::shared_ptr<Document>();
+    }
+    else
+    {
       // Fill the current object
-      object_->read(db_, object_ids_.back());
-      return *this;
+      object_ = boost::shared_ptr<Document>(new Document(db_, collection_, object_ids_.back()));
+      object_ids_.pop_back();
     }
+    return *this;
+  }
 
-    bool operator!=(const QueryIterator<T> & query_iterator) const
-    {
-      if (query_iterator.object_ids_.empty())
-        return (!object_ids_.empty());
-      if (object_ids_.size() >= query_iterator.object_ids_.size())
-        return std::equal(object_ids_.begin(), object_ids_.end(), query_iterator.object_ids_.begin());
-      else
-        return std::equal(query_iterator.object_ids_.begin(), query_iterator.object_ids_.end(), object_ids_.begin());
-    }
+  bool operator!=(const QueryIterator & query_iterator) const
+  {
+    if (query_iterator.object_ids_.empty())
+      return (!object_ids_.empty());
+    if (object_ids_.size() >= query_iterator.object_ids_.size())
+      return std::equal(object_ids_.begin(), object_ids_.end(), query_iterator.object_ids_.begin());
+    else
+      return std::equal(query_iterator.object_ids_.begin(), query_iterator.object_ids_.end(), object_ids_.begin());
+  }
 
-    QueryIterator end()
-    {
-      return QueryIterator();
-    }
-    friend class Query;
-  private:
-    Db db_;
-    boost::shared_ptr<T> object_;
-    std::vector<ObjectId> object_ids_;
-  };
+  QueryIterator end()
+  {
+    return QueryIterator();
+  }
+  friend class Query;
+private:
+  Db db_;
+  CollectionName collection_;
+  boost::shared_ptr<Document> object_;
+  std::vector<ObjectId> object_ids_;
+};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template<typename T>
-  class Query
+class Query
+{
+  Query();
+
+  /** Add requirements for the documents to retrieve
+   * @param field a field to match
+   * @param regex the regular expression the field verifies, in TODO format
+   */
+  void add_where(FieldName & field, std::string & regex);
+
+  /** Add collections that should be checked for specific fields
+   * @param collection
+   */
+  void set_collection(CollectionName & collection);
+
+  QueryIterator query(const Db &db)
   {
-    Query();
-
-    /** Add requirements for the documents to retrieve
-     * @param field a field to match
-     * @param regex the regular expression the field verifies, in TODO format
-     */
-    void add_where(FieldName & field, std::string & regex);
-
-    /** Add collections that should be checked for specific fields
-     * @param collection
-     */
-    void add_collection(CollectionName & collection);
-
-    QueryIterator<T> query(const Db &db)
-    {
-      // Process the query and get the ids of several objects
-      std::vector<ObjectId> object_ids;
-      db.query(collections_, regexes_, object_ids);
-      return QueryIterator<T>(db, object_ids);
-    }
-  private:
-    std::vector<CollectionName> collections_;
-    std::map<FieldName, std::string> regexes_;
-  };
+    // Process the query and get the ids of several objects
+    std::vector<ObjectId> object_ids;
+    db.query(collection_, regexes_, object_ids);
+    return QueryIterator(db, collection_, object_ids);
+  }
+private:
+  CollectionName collection_;
+  std::map<FieldName, std::string> regexes_;
+};
 
