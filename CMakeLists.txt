@@ -23,38 +23,19 @@ find_package(Boost COMPONENTS
   thread
   filesystem
   regex
+  REQUIRED
   )
-  
-find_package(OpenCV REQUIRED)
 
+  
 #includes
 include_directories(
   ${Boost_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-set(srcs src/document.cpp)
-
-if(OpenCV_FOUND)
-set(srcs ${srcs} src/cv.cpp src/common_inserts.cpp)
-endif()
-
-add_library(objcog_db SHARED ${srcs})
-
-
-
-target_link_libraries(objcog_db 
-  ${Boost_LIBRARIES}
-  ${OpenCV_LIBS}
-  )
-
-
 #install headers
 set(DB_HEADERS
-  include/objcog/db/cv.h
-  include/objcog/db/cv.hpp
-  include/objcog/db/document.hpp
-  include/objcog/db/observation.h
+  include/objcog/db/couch.hpp
   )
 
 INSTALL(FILES ${DB_HEADERS}
@@ -84,5 +65,7 @@ INSTALL(FILES ${CMAKE_BINARY_DIR}/unix_install/objcog_dbConfig.cmake
   DESTINATION share/objcog_db
   COMPONENT main
   )
-
 add_subdirectory(doc)
+add_subdirectory(src)
+ENABLE_TESTING()
+add_subdirectory(testing)

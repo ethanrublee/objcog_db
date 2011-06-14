@@ -27,8 +27,6 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include <objcog/db/client.hpp>
-
 #include <boost/serialization/vector.hpp>
 
 
