@@ -40,7 +40,6 @@
 #include <iostream>
 #include <string>
 
-#define DEFAULT_COUCHDB_URL "http://localhost:5984"
 namespace boost
 {
   namespace serialization
@@ -120,9 +119,7 @@ std::ostream& operator<<(std::ostream& out, const MyDoc& value)
 std::string map_fn_01 = STRINGYFY(
     function(doc)
     {
-      if( doc.favorite_number > 5){
-        emit(null,doc.name);
-      }
+        emit(null,null);
     }
 );
 

@@ -20,14 +20,15 @@ namespace couch
     std::map<std::string, std::string> map, reduce;
   };
 
-  class Db: boost::noncopyable
+  class Db
   {
   public:
     static void all_dbs(const std::string& couch_db_root_url,
                         std::vector<std::string>& dbs);
     explicit Db(const std::string& url);
-//    Db(const Db& rhs);
-//    Db()
+    Db(const Db& rhs);
+    Db(){}
+    Db& operator=(const Db& rhs);
     bool create();
     void update_info();
     void print_info(std::ostream& out);
@@ -46,6 +47,7 @@ namespace couch
   class Document
   {
   public:
+    Document(){}
     explicit Document(const Db& db, const std::string& id = "");
     Document(const Document& rhs);
     Document& operator=(const Document& rhs);

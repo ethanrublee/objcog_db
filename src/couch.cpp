@@ -61,10 +61,15 @@ namespace
         {
           return 0;
         }
+
       writer* data = static_cast<writer*> (userdata);
+      //data->written +=size*nmemb;
       data->stream.write(ptr, size * nmemb);
+      //std::cout << "**"<< data->written << std::endl;
       return size * nmemb;
     }
+
+   // size_t written;
 
   };
 
@@ -240,12 +245,12 @@ namespace
   {
     cURL_GS()
     {
-      std::cout << "curl init" << std::endl;
+      //std::cout << "curl init" << std::endl;
       curl_global_init(CURL_GLOBAL_ALL);
     }
     ~cURL_GS()
     {
-      std::cout << "curl cleanup" << std::endl;
+      //std::cout << "curl cleanup" << std::endl;
       curl_global_cleanup();
     }
   };
@@ -286,6 +291,20 @@ namespace couch
     {
       curl_.setURL(url);
       curl_.setWriter(&json_writer_);
+    }
+
+    impl(const impl& rhs) :
+      url_(rhs.url_), json_writer_(stream_)
+    {
+    }
+
+    impl& operator=(const impl& rhs)
+    {
+      if (&rhs == this)
+        return *this;
+      url_ = rhs.url_;
+      return *this;
+
     }
 
     bool create()
@@ -380,7 +399,7 @@ namespace couch
     void run_view(View& v, int limit_rows, int start_offset, int& total_rows,
                   int& offset, std::vector<couch::Document>& docs)
     {
-      if(limit_rows <= 0)
+      if (limit_rows <= 0)
         limit_rows = std::numeric_limits<int>::max();
       json_spirit::Object obj;
       typedef std::pair<std::string, std::string> value;
@@ -396,8 +415,8 @@ namespace couch
       curl_.setReader(&r);
       curl_.setWriter(&json_writer_);
       curl_.setURL(
-                   url_ + "/_temp_view?limit="
-                       + boost::lexical_cast<std::string>(limit_rows) + "&skip="
+                   url_ + "/_temp_view?limit=" + boost::lexical_cast<
+                       std::string>(limit_rows) + "&skip="
                        + boost::lexical_cast<std::string>(start_offset));
       curl_.setHeader("Content-Type: application/json");
       curl_.setCustomRequest("POST");
@@ -531,16 +550,6 @@ namespace couch
         it_inserted.first->second = jval;
     }
 
-    template<typename T>
-    void attach(const std::string& attachment_name, const T& value)
-    {
-      typedef boost::archive::binary_oarchive OutputArchive;
-      std::stringstream ss;
-      OutputArchive ar(ss);
-      ar & value;
-      attach(attachment_name, ss, "application/octet-stream");
-    }
-
     void attach(const std::string& attachment_name, std::istream& stream,
                 const std::string& content_type)
     {
@@ -554,17 +563,6 @@ namespace couch
       curl_.PUT();
       curl_.perform();
       getid();
-    }
-
-    template<typename T>
-    void get_attachment(const std::string& attachment_name, T& value)
-    {
-      typedef boost::archive::binary_iarchive InputArchive;
-      std::stringstream stream;
-      get_attachment_stream(attachment_name, stream);
-      stream.seekg(0);
-      InputArchive ar(stream);
-      ar & value;
     }
 
     void get_attachment_stream(const std::string& attachment_name,
@@ -743,9 +741,29 @@ couch::Document& couch::Document::operator=(const Document& rhs)
 {
   if (&rhs == this)
     return *this;
-  *impl_ = *rhs.impl_;
+  if (impl_.get() == 0)
+    impl_.reset(new impl(*rhs.impl_));
+  else
+    *impl_ = *rhs.impl_;
   return *this;
 }
+
+couch::Db::Db(const Db& rhs) :
+  impl_(new impl(*rhs.impl_))
+{
+
+}
+couch::Db& couch::Db::operator=(const Db& rhs)
+{
+  if (&rhs == this)
+    return *this;
+  if (impl_.get() == 0)
+    impl_.reset(new impl(*rhs.impl_));
+  else
+    *impl_ = *rhs.impl_;
+  return *this;
+}
+
 void couch::Document::whoami()
 {
   impl_->whoami();
